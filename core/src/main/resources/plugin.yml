@@ -1,0 +1,6 @@
+name: ${name}
+version: ${version}
+main: io.nexstudios.compactors.io.nexstudios.compactors.NexCompactors
+api-version: '1.21'
+depend:
+  - Nexus
