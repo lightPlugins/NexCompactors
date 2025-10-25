@@ -1,0 +1,33 @@
+general:
+  prefix: '<yellow>[<gold>NEXDROPS<yellow>]</yellow>'
+  no-permission: '<red>You do not have permission to perform this command.</red>'
+  reload: '<gray>Configuration reloaded <yellow>successfully<gray>!'#
+  switch-language: '<gray>Language switched to <yellow><nex_language><gray>!'
+  wrong-command: '<red>Unknown command. Please use <dark_red><usage>'
+compactors:
+  unknown-compactor: '<red>Could not find compactor id <dark_red><compactor>'
+  unknown-recipe: '<red>Could not find recipe id <dark_red><recipe>'
+  not-allowed-recipe: '<red>You are not allowed to use this recipe'
+  toggle-recipe: '<gray>Recipe <yellow><recipe> <gray>toggled to <state>'
+# ######################################################  #
+#                   INVENTORY Translations                #
+# ######################################################  #
+# Here you can localize the inventory titles and content.
+# (lore and display names)
+inventories:
+  compactor:
+    title: '<red><compactor> <dark_gray>Compactor'
+    content:
+      navigation:
+        close:
+          name: '<red>Close Inventory'
+          lore:
+            - '<dark_red>Close Inventory'
+        previous-page:
+          name: '<yellow>Previous Page'
+          lore:
+            - '<gray>Previous page'
+        next-page:
+          name: '<yellow>Next Page'
+          lore:
+            - '<gray>Next page'

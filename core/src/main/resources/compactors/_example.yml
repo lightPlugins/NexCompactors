@@ -1,0 +1,160 @@
+# compactor.yml
+# -----------------------------------------------------------------------------------
+# Compactor configuration file
+# This system auto-crafts items in a player's inventory into compacted forms once a
+# required amount is reached (like Hypixel's Compactors).
+#
+# IMPORTANT:
+# - The system only works if the player has the correct "Compactor" item (e.g., via MMOItems).
+# - Which recipes are active is stored per player (not in this file). New players
+#   start with all recipes set to OFF (disabled for them), even if the recipe is
+#   globally enabled here.
+# - Players can toggle their recipes via commands (AKARI Commands) initially; later
+#   you can open a GUI via your MMOItems item.
+# - Permissions are checked when a player attempts to enable a recipe. An empty
+#   list means no permissions required to enable that recipe.
+# - No overflow handling is configured here. If there is no space for the result,
+#   crafting does not occur and the player gets feedback (chat + sound).
+# - Nested crafting (chaining) is supported, so a resulting item can immediately
+#   serve as input for another recipe in the same cycle.
+# -----------------------------------------------------------------------------------
+
+enabled: true  # Global toggle for the entire Compactor system. If false, nothing triggers.
+
+name: '<red>Mining'  # Name of the Compactor for some UI purposes.
+
+triggers:
+  # Defines when the Compactor attempts to run an inventory pass.
+  # After any of these triggers, a small delay is applied to allow
+  # the server to finish any stack merges or inventory updates.
+  on-pickup: true       # When a player picks up items from the ground
+  on-autopickup: true   # When items go directly to inventory via AutoPickup
+  on-add-item: true     # When items are added programmatically (e.g., addItem(...) from other plugins; Paper recommended)
+  delay-ticks: 1        # Delay in ticks before processing (helps avoid conflicts and ensures correct stack states)
+
+chaining:
+  # Nested crafting behavior: if a recipe creates an item that is required by another recipe,
+  # the system will continue crafting in the same pass as long as requirements are met.
+  enabled: true
+  max-crafts-per-cycle: 1024  # Safety limit to prevent infinite loops for interdependent recipes
+
+feedback:
+  # Player feedback when crafting cannot proceed due to insufficient space
+  # for the result item. No items will be removed in this case.
+  on-no-space:
+    chat: "&cNot enough space in your inventory! Compaction aborted."
+    sound:
+      enabled: true
+      type: "ENTITY_VILLAGER_NO"  # Bukkit/Spigot/Paper sound name
+      volume: 1.0
+      pitch: 1.0
+      rate-limit-ticks: 10        # Avoid spamming the same message/sound too frequently
+
+# Recipes section:
+# - Each recipe defines the input (required) and output (final).
+# - priority controls execution order when multiple recipes could consume the same items
+#   (lower number = processed earlier). This ensures deterministic behavior.
+# - permissions is a list of permission nodes required to enable the recipe per player.
+#   If the list is empty, no permission is required. If the player lacks any listed
+#   permission, they cannot enable the recipe (it remains OFF for them).
+# - matcher is optional. If omitted, matching defaults to MATERIAL (by required.item only).
+#   If specified, it can refine the match:
+#     type:
+#       - MATERIAL: only Material/Key is matched (default when matcher omitted).
+#       - NAME: requires a display name match.
+#       - LORE: requires lore contains lines (partial match).
+#       - CUSTOM_MODEL_DATA: requires a specific CustomModelData.
+#       - NBT: requires specific NBT/Component data (implementation-defined).
+#       - COMBINED: combines several checks (name, lore-contains, custom-model-data, nbt).
+#   The exact evaluation for NAME/LORE/NBT depends on your implementation (e.g., Paper components).
+#
+# Note: The "final" section needs only item and amount. Meta is intentionally omitted.
+
+recipes:
+
+  # Example A: 10x stone -> 1x diamond
+  # - No permissions required (anyone can enable it).
+  # - No matcher provided, defaults to MATERIAL.
+  - id: stone_to_diamond
+    enabled: true              # Globally available. Players still must enable it per player.
+    priority: 50               # Processed after higher-priority recipes (lower = earlier)
+    permissions: []            # Empty => no permission required
+    inventory:
+      item: 'minecraft:stone'
+
+    required:
+      item: "minecraft:stone"  # Namespaced key or material name
+      amount: 10               # Number of input items consumed per craft
+      # matcher:               # Optional; omitted => defaults to MATERIAL
+    final:
+      item: "minecraft:diamond"
+      amount: 1
+  # Example B: 9x coal -> 1x coal_block
+  # - Permissions required to enable.
+  # - Chaining allows this to feed into the next recipe immediately.
+  - id: coal_to_block
+    enabled: true
+    priority: 10
+    permissions:
+      - "nex.compactor.recipe.coal_to_block"
+    required:
+      item: "minecraft:coal"
+      amount: 9
+    final:
+      item: "minecraft:coal_block"
+      amount: 1
+
+  # Example C: 9x coal_block -> 1x netherite_scrap (demo "super compact")
+  # - Also permission-gated.
+  # - priority is slightly larger than coal_to_block to ensure proper order.
+  - id: coal_block_to_super
+    name: 'Coal Block'
+    enabled: true
+    priority: 11
+    permissions:
+      - "nex.compactor.recipe.coal_block_to_super"
+    required:
+      item: "minecraft:coal_block"
+      amount: 9
+    final:
+      item: "minecraft:netherite_scrap"
+      amount: 1
+
+  # Example D: 16x emerald (with strict matching via COMBINED) -> 1x emerald_block
+  # - Demonstrates the optional matcher to identify specific custom items.
+  - id: special_gem_to_block
+    name: 'Coal Block'
+    enabled: true
+    priority: 30
+    permissions:
+      - "nex.compactor.recipe.special_gem_to_block"
+    required:
+      item: "minecraft:emerald"
+      amount: 16
+      matcher:
+        type: COMBINED
+        name: "&aRare Jewel"           # Display name requirement (implementation-defined matching)
+        lore-contains:
+          - "&7Found in ancient ruins" # At least one lore line containing this text
+        custom-model-data: 2024         # Specific CustomModelData value
+        nbt: {}                         # Optional NBT/Component constraints (structure per your implementation)
+    final:
+      item: "minecraft:emerald_block"
+      amount: 1
+
+  # Example E: 9x iron_ingot -> 1x iron_block
+  # - Explicitly showcasing a MATERIAL matcher (equivalent to omitting matcher).
+  - id: iron_ingot_to_block
+    name: 'Iron Ingot'
+    enabled: true
+    priority: 40
+    permissions:
+      - "nex.compactor.recipe.iron_ingot_to_block"
+    required:
+      item: "minecraft:iron_ingot"
+      amount: 9
+      matcher:
+        type: MATERIAL
+    final:
+      item: "minecraft:iron_block"
+      amount: 1
