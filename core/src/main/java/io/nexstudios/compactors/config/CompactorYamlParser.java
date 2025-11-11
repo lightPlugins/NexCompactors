@@ -1,8 +1,10 @@
 package io.nexstudios.compactors.config;
 
 import io.nexstudios.nexus.bukkit.utils.NexusLogger;
+import io.nexstudios.nexus.bukkit.utils.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.*;
@@ -14,6 +16,13 @@ public final class CompactorYamlParser {
     public static CompactorConfig parse(String id, FileConfiguration cfg, NexusLogger logger) {
         boolean enabled = cfg.getBoolean("enabled", true);
         String name = cfg.getString("name", id);
+
+        //Category Item (nexus item config section)
+        var categoryItemSec = cfg.getConfigurationSection("category-item");
+        Map<String, Object> categoryItem = categoryItemSec != null
+                ? categoryItemSec.getValues(true)
+                : Collections.emptyMap();
+
 
         // Commands
         var commandsSec = cfg.getConfigurationSection("commands");
@@ -48,7 +57,7 @@ public final class CompactorYamlParser {
         );
 
         // Feedback
-        var fb = cfg.getConfigurationSection("feedback.on-no-space");
+        ConfigurationSection fb = cfg.getConfigurationSection("feedback.on-no-space");
         CompactorFeedback feedback = new CompactorFeedback(
                 fb == null ? "&cNot enough space in your inventory! Compaction aborted." : fb.getString("chat", "&cNot enough space in your inventory! Compaction aborted."),
                 fb != null && fb.getConfigurationSection("sound") != null && fb.getBoolean("sound.enabled", true),
@@ -60,17 +69,19 @@ public final class CompactorYamlParser {
 
         // Recipes
         List<RecipeConfig> recipes = new ArrayList<>();
-        var recipesList = cfg.getList("recipes");
-        if (recipesList instanceof List<?> rawList) {
-            for (Object o : rawList) {
-                if (!(o instanceof Map<?, ?> m)) continue;
-                RecipeConfig rc = parseRecipe((Map<Object, Object>) m, logger);
-                recipes.add(rc);
-            }
+        List<Map<?, ?>> maps = cfg.getMapList("recipes");
+        for (Map<?, ?> m : maps) {
+            if (m == null || m.isEmpty()) continue;
+            RecipeConfig rc = parseRecipe(m, logger);
+            recipes.add(rc);
         }
+
+
+
 
         return CompactorConfig.builder()
                 .id(id)
+                .categoryItem(categoryItem)
                 .name(name)
                 .enabled(enabled)
                 .commands(commandConfig)
@@ -82,27 +93,66 @@ public final class CompactorYamlParser {
                 .build();
     }
 
-    @SuppressWarnings("unchecked")
-    private static RecipeConfig parseRecipe(Map<Object, Object> map, NexusLogger logger) {
+    private static RecipeConfig parseRecipe(Map<?, ?> map, NexusLogger logger) {
         String id = String.valueOf(map.get("id"));
-        String name = String.valueOf(map.getOrDefault("name", "Default Recipe"));
+
+        Object nameObj = map.get("name");
+        String name = nameObj != null ? String.valueOf(nameObj) : "Default Recipe";
+
         boolean enabled = getBool(map, "enabled", true);
         int priority = getInt(map, "priority", 100);
-        List<String> permissions = (List<String>) map.getOrDefault("permissions", Collections.emptyList());
 
-        Map<String, Object> required = (Map<String, Object>) map.get("required");
-        if (required == null) throw new IllegalArgumentException("Recipe " + id + " missing 'required'");
+        // permissions als List<String> robust konvertieren
+        List<String> permissions;
+        Object permsObj = map.get("permissions");
+        if (permsObj instanceof List<?> list) {
+            List<String> tmp = new ArrayList<>(list.size());
+            for (Object e : list) {
+                if (e != null) tmp.add(String.valueOf(e));
+            }
+            permissions = Collections.unmodifiableList(tmp);
+        } else {
+            permissions = Collections.emptyList();
+        }
+
+        // "required" in Map<String, Object> umwandeln
+        Map<String, Object> required;
+        Object reqObj = map.get("required");
+        if (reqObj instanceof Map<?, ?> reqMap) {
+            required = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> en : reqMap.entrySet()) {
+                required.put(String.valueOf(en.getKey()), en.getValue());
+            }
+        } else {
+            throw new IllegalArgumentException("Recipe " + id + " missing 'required'");
+        }
+
         String reqItem = String.valueOf(required.get("item"));
         int reqAmount = ((Number) required.getOrDefault("amount", 1)).intValue();
 
+        // optionaler matcher
         MatcherConfig matcher = null;
         Object matcherObj = required.get("matcher");
         if (matcherObj instanceof Map<?, ?> mm) {
-            matcher = parseMatcher((Map<String, Object>) matcherObj);
+            Map<String, Object> mmStr = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> en : ((Map<?, ?>) mm).entrySet()) {
+                mmStr.put(String.valueOf(en.getKey()), en.getValue());
+            }
+            matcher = parseMatcher(mmStr);
         }
 
-        Map<String, Object> fin = (Map<String, Object>) map.get("final");
-        if (fin == null) throw new IllegalArgumentException("Recipe " + id + " missing 'final'");
+        // "final" -> Map<String, Object>
+        Map<String, Object> fin;
+        Object finObj = map.get("final");
+        if (finObj instanceof Map<?, ?> finMap) {
+            fin = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> en : finMap.entrySet()) {
+                fin.put(String.valueOf(en.getKey()), en.getValue());
+            }
+        } else {
+            throw new IllegalArgumentException("Recipe " + id + " missing 'final' Item section");
+        }
+
         String outItem = String.valueOf(fin.get("item"));
         int outAmount = ((Number) fin.getOrDefault("amount", 1)).intValue();
 
@@ -116,6 +166,8 @@ public final class CompactorYamlParser {
                 .result(new ResultConfig(outItem, outAmount))
                 .build();
     }
+
+
 
     private static MatcherConfig parseMatcher(Map<String, Object> mm) {
         String type = String.valueOf(mm.getOrDefault("type", "MATERIAL"));

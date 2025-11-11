@@ -1,5 +1,6 @@
 package io.nexstudios.compactors;
 
+import io.nexstudios.compactors.command.CategoryInvCommand;
 import io.nexstudios.compactors.command.ReloadCommand;
 import io.nexstudios.compactors.register.CompactorRegistry;
 import io.nexstudios.nexus.bukkit.files.NexusFile;
@@ -75,11 +76,14 @@ public class NexCompactors extends JavaPlugin {
         if (compactorRegistry != null) {
             compactorRegistry.reload();
         }
+
+        this.invService.registerNamespace("nexcompactors", inventoryFiles);
     }
 
     public void registerCommands() {
         int size = commandManager.getRegisteredRootCommands().size();
         commandManager.registerCommand(new ReloadCommand());
+        commandManager.registerCommand(new CategoryInvCommand());
         nexusLogger.info("Successfully registered " + size  + " command(s).");
     }
 
@@ -91,7 +95,8 @@ public class NexCompactors extends JavaPlugin {
         settingsFile = new NexusFile(this, "settings.yml", nexusLogger, true);
 
         new NexusFile(this, "languages/english.yml", nexusLogger, true);
-        new NexusFile(this, "inventories/compactor.yml", nexusLogger, true);
+        new NexusFile(this, "inventories/compactor.yml", nexusLogger, false);
+        new NexusFile(this, "inventories/category.yml", nexusLogger, false);
         nexusLogger.setDebugEnabled(settingsFile.getBoolean("logging.debug.enable", true));
         nexusLogger.setDebugLevel(settingsFile.getInt("logging.debug.level", 3));
 

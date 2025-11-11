@@ -22,6 +22,30 @@
 enabled: true  # Global toggle for the entire Compactor system. If false, nothing triggers.
 
 name: '<red>Mining'  # Name of the Compactor for some UI purposes.
+category-item: # The Item shown in the Category GUI
+  item: 'minecraft:diamond_pickaxe'
+  displayname: '<#ffdc73><recipe> <dark_gray>Recipe'
+  amount: 1
+  lore:
+    - 'test'
+  hide-flags:
+    - id: HIDE_ENCHANTS
+    - id: HIDE_ATTRIBUTES
+  enchantments:
+    - id: FIRE_ASPECT
+      level: 1
+      unsave: true
+  attributes:
+    - id: 'minecraft:attack_speed'
+      amount: 10.0
+      operation: ADD
+      slots:
+        - 'hand'
+        - 'offhand'
+  model-data-float: 1337
+  item-model: 'my_pack:items/sword_01'
+  tooltip-model: 'minecraft:legendary'
+  unbreakable: true
 
 triggers:
   # Defines when the Compactor attempts to run an inventory pass.

@@ -31,3 +31,19 @@ inventories:
           name: '<yellow>Next Page'
           lore:
             - '<gray>Next page'
+  category:
+    title: '<red><compactor> <dark_gray>Compactor Categories'
+    content:
+      navigation:
+        close:
+          name: '<red>Close Inventory'
+          lore:
+            - '<dark_red>Close Inventory'
+        previous-page:
+          name: '<yellow>Previous Page'
+          lore:
+            - '<gray>Previous page'
+        next-page:
+          name: '<yellow>Next Page'
+          lore:
+            - '<gray>Next page'
