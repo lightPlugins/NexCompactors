@@ -12,8 +12,6 @@ import io.nexstudios.nexus.bukkit.items.ItemBuilder;
 import io.nexstudios.nexus.bukkit.items.ItemHideFlag;
 import io.nexstudios.nexus.bukkit.platform.NexServices;
 import io.nexstudios.nexus.bukkit.utils.StringUtils;
-import io.papermc.asm.rules.method.StaticRewrites;
-import io.papermc.paper.datacomponent.DataComponentTypes;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
