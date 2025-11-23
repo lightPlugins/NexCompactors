@@ -1,6 +1,7 @@
 package io.nexstudios.compactors.logic;
 
 import io.nexstudios.compactors.NexCompactors;
+import io.papermc.paper.event.player.PlayerInventorySlotChangeEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -50,6 +51,12 @@ public final class CompactorTriggerListener implements Listener {
         schedulePass(e.getPlayer());
     }
 
+    @EventHandler
+    public void onPickup(PlayerInventorySlotChangeEvent e) {
+        if (!manager.anyOnAddItemEnabled()) return;
+        schedulePass(e.getPlayer());
+    }
+
     // Verhindere Doppeltrigger: ignorieren, wenn es ein Spieler ist (AttemptPickup deckt den Fall bereits ab)
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onEntityPickup(EntityPickupItemEvent e) {
@@ -57,7 +64,7 @@ public final class CompactorTriggerListener implements Listener {
         if (e.getEntity() instanceof Player) return;
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    // @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onInventoryClick(InventoryClickEvent e) {
         if (!manager.anyOnAddItemEnabled()) return;
         if (!(e.getWhoClicked() instanceof Player p)) return;

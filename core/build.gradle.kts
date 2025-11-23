@@ -7,11 +7,11 @@ plugins {
     id("io.papermc.paperweight.userdev") version "2.0.0-beta.17"
 }
 
-group = "io.nexstudios.drops"
+group = "io.nexstudios.compactors"
 version = "1.0-SNAPSHOT"
 
 base {
-    archivesName.set("NexDrops")
+    archivesName.set("NexCompactors")
 }
 
 repositories {
@@ -25,7 +25,7 @@ repositories {
 
 dependencies {
     paperweight.paperDevBundle("1.21.7-R0.1-SNAPSHOT")
-    compileOnly(files("C:/Users/philipp/IdeaProjects/Nexus/build/libs/Nexus-1.0.0-all.jar"))
+    compileOnly(files("C:/Users/phili/IdeaProjects/Nexus/build/libs/Nexus-1.0.0-all.jar"))
     compileOnly("io.lumine:Mythic-Dist:5.9.5")
 }
 
@@ -38,7 +38,7 @@ tasks {
         from(sourceSets.main.get().resources.srcDirs()) {
             filesMatching("plugin.yml") {
                 expand(
-                    "name" to "NexDrops",
+                    "name" to "NexCompactors",
                     "version" to version
                 )
 
@@ -57,7 +57,7 @@ tasks {
 
     shadowJar {
         archiveClassifier.set("")
-        archiveBaseName.set("NexDrops")
+        archiveBaseName.set("NexCompactors")
         destinationDirectory.set(rootProject.layout.buildDirectory.dir("libs"))
         relocate("co.aikar.commands", "io.nexstudios.nexus.libs.commands")
         relocate("co.aikar.locales", "io.nexstudios.nexus.libs.locales")

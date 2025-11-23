@@ -1,0 +1,64 @@
+title: '#language:title#'
+size: 6
+update-intervall: 2
+content:
+  decoration:
+    enable: true
+    item: black_stained_glass_pane
+  navigation:
+    - id: close
+      item: 'minecraft:redstone'
+      page: 1
+      slots: [51,52]
+      use-page-number-as-amount: false
+      name: '#language:navigation.close.name#'
+      model-data: 1337
+      lore: '#language:navigation.close.lore#'
+      extras: [ ] #(optional)
+    - id: previous-page
+      item: 'minecraft:arrow'
+      page: 1
+      slots: [47]
+      use-page-number-as-amount: false
+      name: '#language:previous-page.name#'
+      model-data: 1337
+      lore: '#language:navigation.previous-page.lore#'
+      extras: [ ] #(optional)
+    - id: next-page
+      item: 'minecraft:arrow'
+      page: 1
+      slots: [48]
+      use-page-number-as-amount: false
+      name: '#language:navigation.next-page.name#'
+      model-data: 1337
+      lore: '#language:navigation.next-page.lore#'
+      extras: [ ] #(optional)
+  # must have items for the api use
+  # the namespace 'heal' is required for the api.
+  required: [ ]
+  # The custom subsection for the inventory content
+  # Users can define their own items without functionality (Visual only) (optional)
+  custom: [ ]
+  # The extra settings subsection for the inventory content,
+  # for example, a plugin needs some extra settings for the inventory (optional)
+  # This section is just an example for a use case
+  extra-settings:
+    filler:
+      start-slot: 11
+      end-slot: 33
+    lore-info:
+      unlocked: '<yellow>Left click to toggle status'
+      locked: '<red>You need to unlock this compactor'
+      enabled: '<green><bold>ENABLED<reset>'
+      disabled: '<red><bold>DISABLED<reset>'
+    compactor-item:
+      displayname: '<#ffdc73><recipe> <dark_gray>Recipe'
+      lore:
+        - ' '
+        - '<gray>Compactor Recipe'
+        - '<gray>Converts <yellow>#required-amount#<gray>x <yellow>#required-item#'
+        - '<gray>into <yellow>#result-amount#<gray>x <yellow>#result-item#.'
+        - ' '
+        - '<gray>Current Status: #status#'
+        - ' '
+        - '#info#'

@@ -1,5 +1,7 @@
 package io.nexstudios.compactors;
 
+import io.nexstudios.compactors.command.CategoryInvCommand;
+import io.nexstudios.compactors.command.ReloadCommand;
 import io.nexstudios.compactors.register.CompactorRegistry;
 import io.nexstudios.nexus.bukkit.files.NexusFile;
 import io.nexstudios.nexus.bukkit.files.NexusFileReader;
@@ -34,8 +36,8 @@ public class NexCompactors extends JavaPlugin {
     public void onLoad() {
         instance = this;
         if(!checkPluginRequirements()) return;
-        nexusLogger = new NexusLogger("<reset>[<purple>NexCompactors<reset>]", true, 99, "<purple>");
-        nexusLogger.info("Loading <purple>NexDrops <reset>...");
+        nexusLogger = new NexusLogger("<reset>[<dark_purple>NexCompactors<reset>]", true, 99, "<dark_purple>");
+        nexusLogger.info("Loading <dark_purple>NexCompactors <reset>...");
     }
 
 
@@ -43,6 +45,7 @@ public class NexCompactors extends JavaPlugin {
     public void onEnable() {
         nexusLogger.info("Starting up ...");
         nexusLogger.info("Register commands ...");
+        loadNexusFiles();
         commandManager = new PaperCommandManager(this);
         registerCommands();
         nexusLogger.info("Register events ...");
@@ -68,15 +71,19 @@ public class NexCompactors extends JavaPlugin {
 
     public void onReload() {
 
-        messageSender = new MessageSender(nexusLanguage);
+        loadNexusFiles();
 
         if (compactorRegistry != null) {
             compactorRegistry.reload();
         }
+
+        this.invService.registerNamespace("nexcompactors", inventoryFiles);
     }
 
     public void registerCommands() {
         int size = commandManager.getRegisteredRootCommands().size();
+        commandManager.registerCommand(new ReloadCommand());
+        commandManager.registerCommand(new CategoryInvCommand());
         nexusLogger.info("Successfully registered " + size  + " command(s).");
     }
 
@@ -88,12 +95,17 @@ public class NexCompactors extends JavaPlugin {
         settingsFile = new NexusFile(this, "settings.yml", nexusLogger, true);
 
         new NexusFile(this, "languages/english.yml", nexusLogger, true);
+        new NexusFile(this, "inventories/compactor.yml", nexusLogger, false);
+        new NexusFile(this, "inventories/category.yml", nexusLogger, false);
         nexusLogger.setDebugEnabled(settingsFile.getBoolean("logging.debug.enable", true));
         nexusLogger.setDebugLevel(settingsFile.getInt("logging.debug.level", 3));
 
         inventoryFiles = new NexusFileReader("inventories", this);
         languageFiles = new NexusFileReader("languages", this);
         nexusLanguage = new NexusLanguage(languageFiles, nexusLogger);
+        messageSender = new MessageSender(nexusLanguage);
+
+        new NexusFile(this, "compactors/_example.yml", nexusLogger, true);
 
         nexusLogger.info("All Nexus files have been (re)loaded successfully.");
     }
