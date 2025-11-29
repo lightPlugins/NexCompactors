@@ -100,12 +100,12 @@ recipes:
   # - No permissions required (anyone can enable it).
   # - No matcher provided, defaults to MATERIAL.
   - id: stone_to_diamond
+    name: '<aqua>Diamond'
     enabled: true              # Globally available. Players still must enable it per player.
     priority: 50               # Processed after higher-priority recipes (lower = earlier)
     permissions: []            # Empty => no permission required
     inventory:
       item: 'minecraft:stone'
-
     required:
       item: "minecraft:stone"  # Namespaced key or material name
       amount: 10               # Number of input items consumed per craft
@@ -117,6 +117,7 @@ recipes:
   # - Permissions required to enable.
   # - Chaining allows this to feed into the next recipe immediately.
   - id: coal_to_block
+    name: '<aqua>Coal Block'
     enabled: true
     priority: 10
     permissions:

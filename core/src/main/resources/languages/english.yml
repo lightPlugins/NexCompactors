@@ -4,6 +4,7 @@ general:
   reload: '<gray>Configuration reloaded <yellow>successfully<gray>!'#
   switch-language: '<gray>Language switched to <yellow><nex_language><gray>!'
   wrong-command: '<red>Unknown command. Please use <dark_red><usage>'
+  inventory-click-spam: '<red>Please wait a few seconds before clicking again!'
 compactors:
   unknown-compactor: '<red>Could not find compactor id <dark_red><compactor>'
   unknown-recipe: '<red>Could not find recipe id <dark_red><recipe>'

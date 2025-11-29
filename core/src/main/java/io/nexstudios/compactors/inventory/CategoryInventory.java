@@ -6,17 +6,18 @@ import io.nexstudios.compactors.register.CompactorRegistry;
 import io.nexstudios.nexus.bukkit.inv.api.NexFillerEntry;
 import io.nexstudios.nexus.bukkit.inv.api.NexMenuSession;
 import io.nexstudios.nexus.bukkit.inv.fill.InvAlignment;
+import io.nexstudios.nexus.bukkit.items.ItemHideFlag;
+import io.nexstudios.nexus.bukkit.platform.NexServices;
 import io.nexstudios.nexus.bukkit.utils.StringUtils;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.io.File;
+import java.util.*;
 
 public class CategoryInventory {
 
@@ -37,11 +38,34 @@ public class CategoryInventory {
         }
 
         int startSlot = 11;
-        int endSlot = 33;
+        int endSlot = 35;
+
+        // Inventar-Datei "category.yml" suchen und Filler-Slots lesen
+        File file = NexCompactors.getInstance()
+                .getInventoryFiles()
+                .getFiles()
+                .stream()
+                .filter(mapFile -> mapFile.getName().equalsIgnoreCase("category.yml"))
+                .findFirst()
+                .orElse(null);
+
+        if (file != null) {
+            YamlConfiguration invConfig = YamlConfiguration.loadConfiguration(file);
+            ConfigurationSection fillerSection = invConfig.getConfigurationSection("content.extra-settings.filler");
+            if (fillerSection != null) {
+                startSlot = fillerSection.getInt("start-slot", startSlot);
+                endSlot = fillerSection.getInt("end-slot", endSlot);
+            }
+        }
 
         List<ItemStack> items = new ArrayList<>(compactors.size());
         for (CompactorConfig cfg : compactors) {
-            items.add(buildCategoryItem(cfg, player));
+            ItemStack is = buildCategoryItem(cfg, player);
+            var builder = NexServices.newItemBuilder()
+                    .itemStack(is)
+                    .hideFlags(Set.of(ItemHideFlag.HIDE_ENCHANTS, ItemHideFlag.HIDE_ATTRIBUTES));
+
+            items.add(builder.build());
         }
 
         NexMenuSession session = NexCompactors.getInstance()

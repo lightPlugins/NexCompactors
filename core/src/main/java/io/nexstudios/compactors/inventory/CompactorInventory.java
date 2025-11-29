@@ -20,16 +20,25 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.translation.GlobalTranslator;
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.io.File;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public final class CompactorInventory {
 
     private static final MiniMessage MM = MiniMessage.miniMessage();
+
+    // Globaler Toggle-Cooldown (pro Spieler, für alle Rezepte), in Millisekunden
+    private static final long TOGGLE_COOLDOWN_MS = 2000L;
+    private static final Map<UUID, Long> LAST_TOGGLE_TIME = new ConcurrentHashMap<>();
 
     public CompactorInventory() {}
 
@@ -38,7 +47,7 @@ public final class CompactorInventory {
      * Neuer API-Fluss:
      * 1) Session + populateFiller(...) -> Binding
      * 2) Einträge (NexFillerEntry) mit Click-Handlern registrieren
-     * 3) populateFillerEntries(...).openFor(player)
+     * 3) populateFillerEntries(...).withTitleTags(...); onNavigationClick(...); openFor(player)
      */
     public void openInventory(Player player, Optional<CompactorConfig> compactorConfigOpt) {
         if (compactorConfigOpt.isEmpty()) {
@@ -67,26 +76,78 @@ public final class CompactorInventory {
                     return;
                 }
 
-                // Standard-Layout
+                // Standard-Layout (Defaults, falls YAML fehlt)
                 int startSlot = 11;
-                int endSlot = 33;
+                int endSlot = 35;
 
                 // Lore/Name-Vorlagen (Defaults)
                 String displayNameTpl = "<#ffdc73><recipe> <dark_gray>Recipe";
                 List<String> loreTpl = List.of(
                         " ",
                         "<gray>Compactor Recipe",
-                        "<gray>Converts <yellow>#required-amount#<gray>x <yellow>#required-item#",
-                        "<gray>into <yellow>#result-amount#<gray>x <yellow>#result-item#.",
+                        "<gray>Converts <yellow><required-amount><gray>x <yellow><required-item>",
+                        "<gray>into <yellow><result-amount><gray>x <yellow><result-item>.",
                         " ",
-                        "<gray>Current Status: #status#",
+                        "<gray>Current Status: <status>",
                         " ",
-                        "#info#"
+                        "<info>"
                 );
                 String infoUnlocked = "<yellow>Left click to toggle status";
                 String infoLocked = "<red>You need to unlock this compactor";
                 String statusEnabled = "<green><bold>ENABLED<reset>";
                 String statusDisabled = "<red><bold>DISABLED<reset>";
+
+                // compactor.yml lesen
+                File file = NexCompactors.getInstance()
+                        .getInventoryFiles()
+                        .getFiles()
+                        .stream()
+                        .filter(mapFile -> mapFile.getName().equalsIgnoreCase("compactor.yml"))
+                        .findFirst()
+                        .orElse(null);
+
+                if (file != null) {
+                    YamlConfiguration invConfig = YamlConfiguration.loadConfiguration(file);
+
+                    // Filler-Slots
+                    ConfigurationSection fillerSection =
+                            invConfig.getConfigurationSection("content.extra-settings.filler");
+                    if (fillerSection != null) {
+                        startSlot = fillerSection.getInt("start-slot", startSlot);
+                        endSlot = fillerSection.getInt("end-slot", endSlot);
+                    }
+
+                    // Displayname + Lore für die Recipe-Items
+                    ConfigurationSection itemSection =
+                            invConfig.getConfigurationSection("content.extra-settings.compactor-item");
+                    if (itemSection != null) {
+                        displayNameTpl = itemSection.getString("displayname", displayNameTpl);
+                        List<String> loreFromConfig = itemSection.getStringList("lore");
+                        if (!loreFromConfig.isEmpty()) {
+                            loreTpl = loreFromConfig;
+                        }
+                    }
+
+                    // Lore-Infos (unlocked/locked/enabled/disabled)
+                    ConfigurationSection loreInfoSection =
+                            invConfig.getConfigurationSection("content.extra-settings.lore-info");
+                    if (loreInfoSection != null) {
+                        infoUnlocked = loreInfoSection.getString("unlocked", infoUnlocked);
+                        infoLocked = loreInfoSection.getString("locked", infoLocked);
+                        statusEnabled = loreInfoSection.getString("enabled", statusEnabled);
+                        statusDisabled = loreInfoSection.getString("disabled", statusDisabled);
+                    }
+                }
+
+                // Ab hier final-Kopien, damit sie in Lambdas nutzbar sind
+                final int startSlotFinal = startSlot;
+                final int endSlotFinal = endSlot;
+                final String displayNameTemplate = displayNameTpl;
+                final List<String> loreTemplate = new ArrayList<>(loreTpl);
+                final String infoUnlockedText = infoUnlocked;
+                final String infoLockedText = infoLocked;
+                final String statusEnabledText = statusEnabled;
+                final String statusDisabledText = statusDisabled;
 
                 // Filler-Items als List<ItemStack>, in derselben Reihenfolge wie recipesForBody
                 List<RecipeConfig> recipesForBody = new ArrayList<>();
@@ -117,35 +178,44 @@ public final class CompactorInventory {
                             : resRenderName;
 
                     // Status + Info abhängig von Permission/State
-                    String statusStr = isEnabledForPlayer ? statusEnabled : statusDisabled;
-                    String infoStr = hasPerms ? infoUnlocked : infoLocked;
+                    String statusStr = isEnabledForPlayer ? statusEnabledText : statusDisabledText;
+                    String infoStr = hasPerms ? infoUnlockedText : infoLockedText;
 
-                    // Platzhalter in Lore ersetzen (#...#) und MiniMessage parsen
-                    List<Component> lore = loreTpl.stream()
-                            .map(line -> replaceHashes(line, reqAmount, reqDisplayName, resAmount, resDisplayName, statusStr, infoStr))
-                            .map(line -> MM.deserialize(line, TagResolver.empty()).decoration(TextDecoration.ITALIC, false))
+                    TagResolver tags = TagResolver.resolver(
+                            Placeholder.parsed("recipe", r.getName()),
+                            Placeholder.parsed("required-amount", String.valueOf(reqAmount)),
+                            Placeholder.parsed("required-item", reqDisplayName),
+                            Placeholder.parsed("result-amount", String.valueOf(resAmount)),
+                            Placeholder.parsed("result-item", resDisplayName),
+                            Placeholder.parsed("status", statusStr),
+                            Placeholder.parsed("info", infoStr)
+                    );
+
+                    // Lore mit MiniMessage-Tags
+                    List<Component> lore = loreTemplate.stream()
+                            .map(line -> MM.deserialize(line, tags)
+                                    .decoration(TextDecoration.ITALIC, false))
                             .collect(Collectors.toList());
 
-                    // Displayname via TagResolver (<recipe>)
-                    TagResolver tags = TagResolver.builder()
-                            .resolver(Placeholder.parsed("recipe", r.getName()))
-                            .build();
-                    Component displayName = MM.deserialize(displayNameTpl, tags).decoration(TextDecoration.ITALIC, false);
+                    // Displayname mit denselben Tags (inkl. <recipe>)
+                    Component displayName = MM.deserialize(displayNameTemplate, tags)
+                            .decoration(TextDecoration.ITALIC, false);
 
-                    // Filler-Item als required.item mit required.amount bauen
+                    // Filler-Item als result.item mit result.amount bauen
                     ItemStack baseItem = ItemUtil.parseItem(resKey, resAmount);
 
-                    // Baue das Anzeige-Item über NexServices-Builder; verstecke Enchants immer in Lore
                     var builder = NexServices.newItemBuilder()
                             .itemStack(baseItem)
                             .amount(Math.max(1, reqAmount))
                             .displayName(displayName)
                             .lore(lore)
-                            .hideFlags(Set.of(ItemHideFlag.HIDE_ENCHANTS));
+                            .hideFlags(Set.of(ItemHideFlag.HIDE_ENCHANTS, ItemHideFlag.HIDE_ATTRIBUTES));
 
-                    if (isEnabledForPlayer) {
-                        builder.enchantments(Map.of(Enchantment.FORTUNE, 1)); // Glow
-                    }
+                    // Glow bei enabled kannst du nach Wunsch wieder aktivieren
+                    // if (isEnabledForPlayer) {
+                    //     builder.enchantments(Map.of(Enchantment.FORTUNE, 1));
+                    // }
+
                     ItemStack displayItem = builder.build();
 
                     recipesForBody.add(r);
@@ -159,7 +229,7 @@ public final class CompactorInventory {
 
                 // 2) Filler-Binding mit initialen Items
                 NexMenuSession.FillerBinding binding = session.populateFiller(
-                        fillerItems, startSlot, endSlot, InvAlignment.LEFT
+                        fillerItems, startSlotFinal, endSlotFinal, InvAlignment.LEFT
                 );
 
                 // 3) Einträge mit per-Item Click-Handlern anlegen
@@ -173,6 +243,20 @@ public final class CompactorInventory {
                         Integer bodyIdx = ctx.bodyIndex();
                         if (bodyIdx == null) return;
                         if (bodyIdx != index) return; // Sicherheit: nur korrekter Slot
+
+                        // --- GLOBALER COOLDOWN (pro Spieler) ---
+                        long now = System.currentTimeMillis();
+                        long last = LAST_TOGGLE_TIME.getOrDefault(player.getUniqueId(), 0L);
+                        if (now - last < TOGGLE_COOLDOWN_MS) {
+                            // Verwende deine Language-Message general.inventory-click-spam
+                            NexCompactors.getInstance()
+                                    .getMessageSender()
+                                    .send(player, "general.inventory-click-spam");
+                            return;
+                        }
+                        // Cooldown ab jetzt aktiv, egal welches Rezept getoggelt wird
+                        LAST_TOGGLE_TIME.put(player.getUniqueId(), now);
+                        // --- ENDE COOLDOWN ---
 
                         // Permission-AND prüfen
                         if (!hasAllPermissions(player, recipe.getPermissions())) {
@@ -209,19 +293,25 @@ public final class CompactorInventory {
                                             PlainTextComponentSerializer.plainText().serialize(resultItem.build().displayName())
                                             : resRenderName;
 
-                                    String statusStr = next ? statusEnabled : statusDisabled;
-                                    // hier bereits geklickt, also entsperrt
+                                    String statusStr = next ? statusEnabledText : statusDisabledText;
+                                    String infoStr = infoUnlockedText; // nach Klick: entsperrt + toggelbar
+
+                                    TagResolver tags = TagResolver.resolver(
+                                            Placeholder.parsed("recipe", recipe.getName()),
+                                            Placeholder.parsed("required-amount", String.valueOf(reqAmount)),
+                                            Placeholder.parsed("required-item", reqDisplayName),
+                                            Placeholder.parsed("result-amount", String.valueOf(resAmount)),
+                                            Placeholder.parsed("result-item", resDisplayName),
+                                            Placeholder.parsed("status", statusStr),
+                                            Placeholder.parsed("info", infoStr)
+                                    );
 
                                     // Lore korrekt als List<Component> neu aufbauen
-                                    List<Component> lore = loreTpl.stream()
-                                            .map(line -> replaceHashes(line, reqAmount, reqDisplayName, resAmount, resDisplayName, statusStr, infoUnlocked))
-                                            .map(line -> MM.deserialize(line, TagResolver.empty()))
+                                    List<Component> lore = loreTemplate.stream()
+                                            .map(line -> MM.deserialize(line, tags))
                                             .collect(Collectors.toList());
 
-                                    TagResolver tags = TagResolver.builder()
-                                            .resolver(Placeholder.parsed("recipe", recipe.getName()))
-                                            .build();
-                                    Component displayName = MM.deserialize(displayNameTpl, tags);
+                                    Component displayName = MM.deserialize(displayNameTemplate, tags);
 
                                     // Frisches Basis-Item OHNE Verzauberungen, damit der Glow sicher verschwindet
                                     ItemStack freshBase = ItemUtil.parseItem(resKey, resAmount);
@@ -242,22 +332,30 @@ public final class CompactorInventory {
 
                                     // Optional Spieler-Feedback (Language)
                                     TagResolver tr = TagResolver.resolver(
-                                            Placeholder.unparsed("recipe", recipe.getId()),
-                                            Placeholder.unparsed("state", next ? "enabled" : "disabled"));
+                                            Placeholder.parsed("recipe", recipe.getName()),
+                                            Placeholder.parsed("state", next ? "enabled" : "disabled"));
+                                    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0F, 1.0F);
                                     NexCompactors.getInstance().getMessageSender().send(player, "compactors.toggle-recipe", tr);
                                 }));
                     }));
                 }
 
                 // title replacements (Compactor name)
-                TagResolver tags = TagResolver.resolver(
-                        Placeholder.unparsed("compactor", cfg.getName())
+                TagResolver titleTags = TagResolver.resolver(
+                        Placeholder.parsed("compactor", cfg.getName())
                 );
 
-                // 4) Einträge rendern und öffnen
-                session.populateFillerEntries(entries, startSlot, endSlot, InvAlignment.LEFT)
-                        .withTitleTags(tags)
-                        .openFor(player);
+                // 4) Einträge rendern
+                session.populateFillerEntries(entries, startSlotFinal, endSlotFinal, InvAlignment.LEFT);
+                session.withTitleTags(titleTags);
+
+                // Back-Button: zurück in die Kategorien-Übersicht
+                session.onNavigationClick("back", (navEvent, navCtx) -> {
+                    new CategoryInventory().openInventory(player);
+                });
+
+                // 5) Öffnen
+                session.openFor(player);
             });
         });
     }
@@ -274,29 +372,5 @@ public final class CompactorInventory {
             if (!player.hasPermission(p)) return false;
         }
         return true;
-    }
-
-    /**
-     * Ersetzt die #...# Platzhalter im String und gibt die MiniMessage-kompatible Zeile zurück.
-     * Ersetzt:
-     * - #required-amount#
-     * - #required-item#
-     * - #result-amount#
-     * - #result-item#
-     * - #status#
-     * - #info#
-     */
-    private String replaceHashes(String line,
-                                 int reqAmount, String reqItem,
-                                 int resAmount, String resItem,
-                                 String status, String info) {
-        if (line == null) return "";
-        return line
-                .replace("#required-amount#", String.valueOf(reqAmount))
-                .replace("#required-item#", reqItem)
-                .replace("#result-amount#", String.valueOf(resAmount))
-                .replace("#result-item#", resItem)
-                .replace("#status#", status)
-                .replace("#info#", info);
     }
 }

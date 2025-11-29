@@ -9,7 +9,7 @@ content:
     - id: close
       item: 'minecraft:redstone'
       page: 1
-      slots: [51,52]
+      slots: [50]
       use-page-number-as-amount: false
       name: '#language:navigation.close.name#'
       model-data: 1337
@@ -18,7 +18,7 @@ content:
     - id: previous-page
       item: 'minecraft:arrow'
       page: 1
-      slots: [47]
+      slots: [48]
       use-page-number-as-amount: false
       name: '#language:previous-page.name#'
       model-data: 1337
@@ -27,12 +27,21 @@ content:
     - id: next-page
       item: 'minecraft:arrow'
       page: 1
-      slots: [48]
+      slots: [52]
       use-page-number-as-amount: false
       name: '#language:navigation.next-page.name#'
       model-data: 1337
       lore: '#language:navigation.next-page.lore#'
       extras: [ ] #(optional)
+    - id: back
+      item: 'minecraft:arrow'
+      page: 1
+      slots: [45]
+      use-page-number-as-amount: false
+      name: '#language:navigation.back.name#'
+      model-data: 1337
+      lore: '#language:navigation.back.lore#'
+      extras: [ ]
   # must have items for the api use
   # the namespace 'heal' is required for the api.
   required: [ ]
@@ -45,7 +54,7 @@ content:
   extra-settings:
     filler:
       start-slot: 11
-      end-slot: 33
+      end-slot: 35
     lore-info:
       unlocked: '<yellow>Left click to toggle status'
       locked: '<red>You need to unlock this compactor'
@@ -56,9 +65,9 @@ content:
       lore:
         - ' '
         - '<gray>Compactor Recipe'
-        - '<gray>Converts <yellow>#required-amount#<gray>x <yellow>#required-item#'
-        - '<gray>into <yellow>#result-amount#<gray>x <yellow>#result-item#.'
+        - '<gray>Converts <yellow><required-amount><gray>x <yellow><required-item>'
+        - '<gray>into <yellow><result-amount><gray>x <yellow><result-item>.'
         - ' '
-        - '<gray>Current Status: #status#'
+        - '<gray>Current Status: <status>'
         - ' '
-        - '#info#'
+        - '<info>'
